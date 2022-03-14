@@ -15,10 +15,10 @@
 drop table member_info if exists;
 
 create temp table member_info (
-	yr					varchar(4) not null,
+	yr			varchar(4) not null,
 	member_id_nbr 		varchar(80) not null,
 	member_gender 		varchar(20),
-	member_age 			int,
+	member_age 		int,
 	member_birth_dt 	date,
 	member_zip_cd		varchar(15), 
 	total_exp_2019		numeric(13,2),
@@ -52,13 +52,11 @@ insert into member_info(
 			row_number() over (partition by member_id,member_gender_cd,member_birth_dt, member_age, member_zip_cd order by rev_month desc) as row_rank
 			
 			
-			from sdm_rpt_mem_month
+			from member
 			where substr(rev_month,1,4) = '2019'
-			and rev_elig_ind = 1
 			and member_state_cd = 'CA'
 			and network_cd = 'PPOX'  -- PPO members only
-			and substr(lob_product,1,3) = 'COM' -- commericial members only
-			and lob_sales in ('CORE','PREM') -- Large group commercial members
+			
 			
 	) as t1
 	left join (
@@ -69,7 +67,7 @@ insert into member_info(
 				sum(amt_paid) as paid_amt
 
 				
-				from SDM_RPT_CLM_FINAL_202012 a
+				from claims a
 				
 					
 				where
@@ -77,8 +75,6 @@ insert into member_info(
 				and to_char(fdos_dt,'yyyymm') <= '201912'
 				and member_state_cd = 'CA'
 				and network_cd in ('PPOX') 
-				and substr(lob_product,1,3) = 'COM'
-				and lob_sales in ('CORE','PREM') 
 				and paid_or_denied_cd = 'P' --P for Paid, D for Denied
 			
 				group by 1
@@ -120,13 +116,11 @@ from (
 				row_number() over (partition by member_id,member_gender_cd,member_birth_dt order by rev_month desc) as row_rank
 				
 				
-				from sdm_rpt_mem_month
+				from member
 				where substr(rev_month,1,4) = '2020'
-				and rev_elig_ind = 1
 				and member_state_cd = 'CA'
 				and network_cd = 'PPOX'  -- PPO members only
-				and substr(lob_product,1,3) = 'COM' -- commericial members only
-				and lob_sales in ('CORE','PREM') -- Large group commercial members
+		
 				
 		) as t1
 		left join (
@@ -137,7 +131,7 @@ from (
 					sum(amt_paid) as paid_amt
 	
 					
-					from SDM_RPT_CLM_FINAL_202012 a
+					from claims a
 					
 						
 					where
@@ -145,9 +139,6 @@ from (
 					and to_char(fdos_dt,'yyyymm') <= '202012'
 					and member_state_cd = 'CA'
 					and network_cd in ('PPOX') 
-					and substr(lob_product,1,3) = 'COM'
-					and lob_sales in ('CORE','PREM') 
-					and paid_or_denied_cd = 'P' --P for Paid, D for Denied
 				
 					group by 1
 		) as t2
