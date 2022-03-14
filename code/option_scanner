@@ -1,0 +1,400 @@
+
+
+function amtd_potentialv2() {
+
+  // Run Orders first to ensure accurate BP //
+  amtd_orders(); 
+  amtd_indices();
+
+  var authorization = amtd_GetBearerString_();
+  var currentssht = SpreadsheetApp.getActive();
+  var sheet = currentssht.getSheetByName("Trade Selection V2");
+  var sheet2 = currentssht.getSheetByName("Indices");
+  var MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
+  var now = new Date();
+  var from = new Date(now.getTime() + sheet.getRange("R55").getValue() * MILLIS_PER_DAY);
+  var to = new Date(now.getTime() + sheet.getRange("R56").getValue() * MILLIS_PER_DAY);
+  var from_dt = Utilities.formatDate(from, 'America/Los_Angeles', "yyyy-MM-dd").toString();
+  var to_dt = Utilities.formatDate(to, 'America/Los_Angeles', "yyyy-MM-dd").toString();
+  var authorization = amtd_GetBearerString_();
+  var accountId = "";
+  var options = {
+    "method" : "GET",
+    "headers": {"Authorization": authorization},
+    "apikey" : apikey
+  }
+  
+  var tcker_list = sheet.getRange("S19:S").getValues();
+  var lastrow_list = tcker_list.filter(String).length;
+  var contractType,
+      range,
+      exp_date,
+      bid,
+      ask,
+      mark,
+      roc,
+      volume,
+      oi,
+      volatility,
+      delta,
+      theta,
+      bp_needed,
+      wm_exp,
+      value = [],
+      value2=[];
+  
+  // Inputs
+  var delta_input = sheet.getRange("P7").getValue();
+  var delta_input2 = sheet.getRange("P8").getValue();
+  var roc_input = sheet.getRange("P11").getValue();
+  var oi_input = sheet.getRange("P12").getValue();
+  var bp_ind = sheet.getRange("P13").getValue();
+  var ag_strike = sheet.getRange("P14").getValue();
+  
+  if( sheet.getRange("P9").getValue() > sheet.getRange("P10").getValue()){
+    SpreadsheetApp.getUi().alert("⚠️"+"  "+"DTE From value must be less than DTE To value. ");
+    return false;
+  }
+  
+  if( delta_input > delta_input2){
+    SpreadsheetApp.getUi().alert("⚠️"+"  "+"Delta Above must be less than Delta Below. ");
+    return false;
+  }
+  
+  if( delta_input < 0 || delta_input2 < 0 || roc_input < 0 || oi_input < 0){
+    SpreadsheetApp.getUi().alert("⚠️"+"  "+"Input values must be greater than 0. ");
+    return false;
+  }
+  
+  
+  
+  // Need to change below value when shifting stock watchlist columns
+  var rng = sheet.getRange(19,19,lastrow_list,6);
+  var rngA = rng.getValues();
+  
+  
+  var lastRow = sheet2.getLastRow();
+  //Clear Sheet every run
+  sheet2.getRange("J3:S"+lastRow).clearContent();
+  
+  for (var i = 0; i < rngA.length; i++){
+    
+    /* Contract Type */
+  
+    if (rngA[i][2] =="Y"){
+      contractType = "CALL"
+    }
+    else {
+      contractType = "PUT"
+    }
+  
+    /* Range */
+    range = "OTM";
+    
+    var foptions = "?symbol="+rngA[i][0]+"&contractType="+contractType+"&range="+range+"&fromDate="+from_dt+"&toDate="+to_dt;
+    var myurl="https://api.tdameritrade.com/v1/marketdata/chains"+foptions;
+    var result=UrlFetchApp.fetch(myurl, options);
+    var contents = result.getContentText();
+    var json = JSON.parse(contents);
+    var status = json["status"];
+    
+    if (status == "SUCCESS"){  
+      mapname = contractType.toLowerCase() + "ExpDateMap";
+      putcallmap = json[mapname];
+      
+      
+      /* k1 is expiration date */
+      for (var k1 in putcallmap){   
+        
+        expdatemap = putcallmap[k1];
+        
+          /* k2 is strike price */
+        for (var k2 in expdatemap){
+            
+          
+          pricemap = expdatemap[k2];    
+          price = pricemap[0];
+           
+          //RoC%
+          roc = price["mark"]/(k2-price["mark"]);
+          bp_needed = (k2-price["mark"])*100;
+            
+            
+          /***** Filtering *****/
+          
+          /*
+          //Filter by Delta
+          if ((price["delta"] > -delta_input || price["delta"] < -delta_input2) && contractType == "PUT") continue;
+          if ((price["delta"] < delta_input || price["delta"] > delta_input2) && contractType == "CALL") continue;
+            
+          //Filter by RoC%
+          if (roc_input != "" && roc < roc_input) continue; 
+            
+          //Filter by OI
+          if (oi_input != "" && price["openInterest"] < oi_input) continue; 
+            
+          //Limit by Available BP
+          if (bp_ind == "Y" && bp_needed > sheet.getRange("D2").getValue()) continue; 
+          
+          //Limit by Agreed Strike
+          if (ag_strike == "Y" && k2 > rngA[i][1] && rngA[i][1] != "") continue; 
+            
+            */
+          /***** End Filtering *****/
+            
+          // Weekly/Monthly Expiration
+          if (right(price["description"],8) == "(Weekly)") { 
+            
+            wm_exp = "Y";
+          }
+          else {
+            wm_exp = "N";
+          }
+            
+          // DTE
+          var exp_date = new Date(k1.substring(0,10));
+          var exp_date2 = Utilities.formatDate(exp_date, 'America/Los_Angeles', "MM/dd/yyyy").toString();
+          var Difference_In_Time = exp_date.getTime() - now.getTime();
+          var Difference_In_Days = Difference_In_Time / (1000 * 3600 * 24);
+          var dte = Math.round(Difference_In_Days);
+            
+          //bid = price["bid"];
+          //ask = price["ask"];
+          mark = price["mark"];
+          //volume = price["totalVolume"];
+          oi = price["openInterest"];
+          volatility = price["volatility"];
+          delta = price["delta"];
+          
+          if (wm_exp == "Y") {
+          
+           exp = exp_date2.substring(0,5) + " (W)";
+          }
+          else {
+           exp = exp_date2.substring(0,5);
+          }
+          
+          
+          if (contractType == "PUT") {
+            delta = delta*-1
+          }
+          
+          //image ="=image(\"https://docs.google.com/uc?export=download&id=" + rngA[i][5] +"\")"
+          
+          value.push([rngA[i][0], contractType, exp , dte, k2, mark, roc, delta, oi,volatility/100]);
+
+            
+
+            
+        }
+      }     
+     }
+   }
+  
+
+  
+  // Remove Border
+  
+  var lastrow0 = sheet.getRange("D19:D").getValues();
+  var lastrow0_list = lastrow0.filter(String).length + 18;
+  
+  Logger.log(lastrow0_list);
+
+  var cell0 = sheet.getRange("B"+lastrow0_list+":O"+lastrow0_list);
+  
+  Logger.log(lastrow0_list);
+  cell0.setBorder(null, null, false, null, false, false,"#999999",SpreadsheetApp.BorderStyle.SOLID);
+ 
+  // Paste data in Indices tab
+  sheet2.getRange(3,10,value.length,10).setValues(value);
+  //Update Refresh time after every run
+  sheet.getRange(1,5,1,1).setValue(new Date());
+  
+  // Insert query formula
+  query = '=if(UPPER($E$14)="",query(Indices!J3:T'+sheet2.getRange("J1").getValue()+',"SELECT J,K,L,M,N,O,P,Q,R,S,T"),query(Indices!J3:T'+sheet2.getRange("J1").getValue()+',"SELECT J,K,L,M,N,O,P,Q,R,S,T WHERE J="&"'+"'"+'"&UPPER($E$14)&"'+"'"+'"))';
+  
+  sheet.getRange("D19").setValue(query);
+  
+  // Alternating Row Colors
+  var lastrow2 = value.length + 16;
+  
+  
+  var banding = sheet.getRange('C18:N'+lastrow2).getBandings()[0];
+  banding.setRange(sheet.getRange('C18:N'+lastrow2))
+  .setHeaderRowColor('#ffffff')
+  .setFirstRowColor('#ffffff')
+  .setSecondRowColor('#f3f3f3')
+  .setFooterRowColor(null);
+  
+  
+  //spreadsheet.getRange('C18:N23').applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY);
+  /*var banding = sheet.getRange('B18:O'+lastrow2).getBandings()[0];
+  banding.setHeaderRowColor('#ffffff')
+  .setFirstRowColor('#ffffff')
+  .setSecondRowColor('#f3f3f3')
+  .setFooterRowColor(null);
+  */
+  // Adjust Borders
+  
+  lastrow2 = lastrow2 + 1;
+  
+  var cell = sheet.getRange("B"+lastrow0_list+":O"+lastrow2);
+  var cell2 = sheet.getRange("B"+lastrow2+":O"+lastrow0_list);
+  // Sets borders on the top and bottom, but leaves the left and right unchanged
+  // Also sets the color to "red", and the border to "DASHED".
+ 
+  
+  // New list is longer than old list
+  if (lastrow2 > lastrow0_list){
+    cell.setBorder(null, true, true, true, false, false,"#999999",SpreadsheetApp.BorderStyle.SOLID);
+  }
+  else if (lastrow2 < lastrow0_list){
+  
+    cell2.setBorder(true, false, false, false, false, false,"#999999",SpreadsheetApp.BorderStyle.SOLID);
+  }
+  else {  
+  cell0.setBorder(null, null, true, null, null, null,"#999999",SpreadsheetApp.BorderStyle.SOLID);
+  }
+}
+
+
+
+
+
+/***************************** Pull Indices ****************************************************************/
+
+function amtd_indices() {
+
+
+  var authorization = amtd_GetBearerString_();
+  var currentssht = SpreadsheetApp.getActive();
+  var sheet = currentssht.getSheetByName("Indices");
+  var MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
+  var now = new Date();
+  var authorization = amtd_GetBearerString_();
+  var accountId = "";
+  var options = {
+    "method" : "GET",
+    "headers": {"Authorization": authorization},
+    "apikey" : apikey
+  }
+
+  
+  
+  
+  var lastRow = sheet.getLastRow();
+  //Clear Sheet every run
+  sheet.getRange("B2:F"+lastRow).clearContent();
+  
+    
+    var foptions = "?apikey="+apikey+"&periodType="+"day"+"&period="+"1"+"&frequencyType="+"minute"+"&frequency="+"5"+"&needExtendedHoursData="+"false";
+    var myurl="https://api.tdameritrade.com/v1/marketdata/"+sheet.getRange("B1").getValue()+"/pricehistory"+foptions;
+    var myurl2="https://api.tdameritrade.com/v1/marketdata/"+sheet.getRange("C1").getValue()+"/pricehistory"+foptions;
+    var myurl3="https://api.tdameritrade.com/v1/marketdata/"+sheet.getRange("D1").getValue()+"/pricehistory"+foptions;
+    var myurl4="https://api.tdameritrade.com/v1/marketdata/"+sheet.getRange("E1").getValue()+"/pricehistory"+foptions;
+    var myurl5="https://api.tdameritrade.com/v1/marketdata/"+sheet.getRange("F1").getValue()+"/pricehistory"+foptions;
+    var result=UrlFetchApp.fetch(myurl, options);
+    var contents = result.getContentText();
+    var json = JSON.parse(contents);
+    var candles = json["candles"];
+    var t1 = [];
+    var t2 = [];
+    var t3 = [];
+    var t4 = [];
+    var t5 = [];
+    var cnt = Object.keys(candles).length; 
+    
+     //create a 1D array first with pushing 0,1,2 elements with a for loop
+    for (var j = 0; j < cnt; j++) {  
+    
+      open = candles[j]["open"];
+      close = candles[j]["close"];
+      datetime = candles[j]["datetime"];
+      
+      
+      t1.push([close]);
+            
+    }
+    
+    var result=UrlFetchApp.fetch(myurl2, options);
+    var contents = result.getContentText();
+    var json = JSON.parse(contents);
+    var candles = json["candles"];
+    var cnt = Object.keys(candles).length; 
+    
+     //create a 1D array first with pushing 0,1,2 elements with a for loop
+    for (var j = 0; j < cnt; j++) {  
+    
+      open = candles[j]["open"];
+      close = candles[j]["close"];
+      datetime = candles[j]["datetime"];
+ 
+      t2.push([close]);
+
+            
+    }
+  
+    var result=UrlFetchApp.fetch(myurl3,options);
+    var contents = result.getContentText();
+    var json = JSON.parse(contents);
+    var candles = json["candles"];
+    var cnt = Object.keys(candles).length; 
+    
+     //create a 1D array first with pushing 0,1,2 elements with a for loop
+    for (var j = 0; j < cnt; j++) {  
+    
+      open = candles[j]["open"];
+      close = candles[j]["close"];
+      datetime = candles[j]["datetime"];
+ 
+     t3.push([close]);
+
+           
+            
+    }
+  
+    var result=UrlFetchApp.fetch(myurl4,options);
+    var contents = result.getContentText();
+    var json = JSON.parse(contents);
+    var candles = json["candles"];
+    var cnt = Object.keys(candles).length; 
+    
+     //create a 1D array first with pushing 0,1,2 elements with a for loop
+    for (var j = 0; j < cnt; j++) {  
+    
+      open = candles[j]["open"];
+      close = candles[j]["close"];
+      datetime = candles[j]["datetime"];
+ 
+     t4.push([close]);
+
+           
+            
+    }
+  
+    var result=UrlFetchApp.fetch(myurl5,options);
+    var contents = result.getContentText();
+    var json = JSON.parse(contents);
+    var candles = json["candles"];
+    var cnt = Object.keys(candles).length; 
+    
+     //create a 1D array first with pushing 0,1,2 elements with a for loop
+    for (var j = 0; j < cnt; j++) {  
+    
+      open = candles[j]["open"];
+      close = candles[j]["close"];
+      datetime = candles[j]["datetime"];
+ 
+     t5.push([close]);
+
+           
+            
+    }
+  
+sheet.getRange(2,2,t1.length,1).setValues(t1);
+sheet.getRange(2,3,t2.length,1).setValues(t2);
+sheet.getRange(2,4,t3.length,1).setValues(t3);
+sheet.getRange(2,5,t4.length,1).setValues(t4);
+sheet.getRange(2,6,t5.length,1).setValues(t5);
+
+};
