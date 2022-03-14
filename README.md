@@ -12,10 +12,21 @@
 
 
 # Trading Dashboard
-* Developed a trading dashboard in Google Sheets for an investment club that I co-founded that tracks key performance metrics: including total realized return, total unrealized return, win rate, loss rate, assignment rate, etc.
+* Developed a trading dashboard tracing key performance metrics in Google Sheets for an investment club that I co-founded: including total realized return, total unrealized return, win rate, loss rate, assignment rate, etc.
 * All trading data are extracted via TD Ameritrade API and refreshed automatically daily using Google App Script.
 * Built automation in Google App Scipt to process and audit trades to ensure data accuracy for tax reporting purposes.
 
 [Google App Script code here](code/trading_dashboard)
 
 ![](images/trading_dashboard.png)
+
+
+# Option Scanner
+* Built a tool in Google Sheets that scans for potential option trades based upon certain criterias: including Delta, Theta, Date to Expiration, Return on Capital, Open Interest, Volume, etc.
+* The tool also displays intraday trading prices for major indices such as S&P 500, NASDAQ, DOW JONES, etc.
+* All market data are extracted via TD Ameritrade API and refreshed automatically every 5 minutes using Google App Script.
+
+
+[Google App Script code here](code/option_scanner)
+
+![](images/option_scanner.png)
