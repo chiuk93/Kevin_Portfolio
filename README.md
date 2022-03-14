@@ -7,4 +7,4 @@ Samples projects and codes that I've written in the past
 * The goal of this dashboard is to demystify Bitcoin for friends who believe Bitcoin does not have intrinsic value.
 * Dashboard refreshes daily automatically with data extracted from Glassnode API automated using Google App Script
 
-[](/images/bitcoin_dashboard.png)
+[](images/bitcoin_dashboard.png)
