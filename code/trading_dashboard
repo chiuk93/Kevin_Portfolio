@@ -1,0 +1,481 @@
+// Connect TDAmeritrade data to Google Sheets
+// Last Edited: 7/29/2021
+
+/******************************************* Log ****************************************************************
+6/25/2021 - Created order data pull script
+7/29/2021 - Adjusted order output from 'description' to 'symbol'
+
+/****************************************************************************************************************/
+
+
+
+//LOCAL PC SIDE
+
+var apikey = "";
+var userProperties = PropertiesService.getUserProperties();
+
+function onOpen() {
+  //Create Menu items
+  var cs = SpreadsheetApp.getActive();
+  var sheet = cs.getSheetByName("Dashboard");
+  var sheet_io = cs.getSheetByName("Input_Options");
+  if(sheet_io.getRange("BE6").getValue() == 'FALSE')
+  {
+    SpreadsheetApp.getUi().alert("⚠️ Audit Error Detected", "Please validate total profit for options and shares. Thanks!", SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+  else if(sheet_io.getRange("BE7").getValue() == 'FALSE')
+  {
+    SpreadsheetApp.getUi().alert("⚠️ Audit Error Detected", "Please validate total P/L by ownership. Thanks!", SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+  else if(sheet_io.getRange("BE8").getValue() == 'FALSE')
+  {
+    SpreadsheetApp.getUi().alert("⚠️ Audit Error Detected", "Please make sure CC or CSP have been closed in the Input_Options tab. Thanks!", SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+
+  var menuItems = [
+    {name: 'Authenticate', functionName: 'amtd_ShowPane'}
+  ];
+  cs.addMenu("Ameritrade APIs", menuItems);
+}
+
+
+
+function amtd_ShowPane() {
+//Open a SidePane asynchronously. The html will return by calling the function amtd_backfromPane
+
+  linkURL = "https://auth.tdameritrade.com/auth?response_type=code&redirect_uri=https%3A%2F%2F127.0.0.1&client_id=MAZSVVVNMW3HXNGAD8AQJIRVULIRLBS5%40AMER.OAUTHAP";
+  var html = HtmlService.createTemplateFromFile('amtd_SidePane')
+    .evaluate();
+  SpreadsheetApp.getUi().showSidebar(html);
+}
+
+function amtd_backfromPane(d) {
+//Called after user clicks Step 2 button on SidePane, return here with dictionary d
+
+  amtd_GetTokens(d.returnURI);
+  
+}
+
+//Autotrigger - Refresh daily trade during market hours
+function DailyPot_trigger() {
+
+  var date = new Date();  
+  var day = date.getDay();
+  var hrs = date.getHours();
+  var min = date.getMinutes();
+
+  // Run daily watchlist during market hours
+  if (hrs >= 6 && (hrs < 13)) {
+    amtd_potential();
+  }
+} 
+
+
+
+/*****************************AUTHENTICATION FUNCTIONS****************************************************************/
+function amtd_GetBearerString_() {
+// Call Amtd get access token using the refresh token - check validity of both access and refresh tokens.
+// Access token lasts for 30 minutes, refresh token lasts for 90 days before having to require user to authenticate again
+// curl -X POST --header "Content-Type: application/x-www-form-urlencoded" -d "grant_type=refresh_token&refresh_token=<refresh_token>&redirect_uri=https%3A%2F%2F127.0.0.1" "https:api.tdameritrade.com/v1/oauth2/token"
+
+  var refresh_token = userProperties.getProperty("refresh_token");
+  var refresh_time = userProperties.getProperty("refresh_time");
+  var access_token = userProperties.getProperty("access_token");
+  var access_time = userProperties.getProperty("access_time");
+  var tokensheet = "TDA - Orders";    //For Ameritrade API w Google Scripts
+  
+  var currentssht = SpreadsheetApp.getActive();
+  var sourcesht = currentssht.getSheetByName(tokensheet);
+  
+  var mynow = new Date();
+  
+  if ( (Date.parse(mynow) - Date.parse(access_time)) <29*60*1000 ) { //Access token is still not expired
+    return "Bearer " + access_token;  
+  } else if ( (Date.parse(mynow) - Date.parse(refresh_time)) >90*24*60*60*1000 ) {  //Refresh token expired
+    //re-authenticate - amtd_showPane() ?
+    return "Re-authentication needed!";    
+  }
+  
+  var formData = {
+    "grant_type" : "refresh_token",
+    "refresh_token" : refresh_token,
+    "client_id" : apikey
+  }
+  var options = {
+    "method" : "post",
+    "payload" : formData
+  }
+  var myurl="https://api.tdameritrade.com/v1/oauth2/token";
+  var result=UrlFetchApp.fetch(myurl, options);
+
+  //Parse JSON
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  
+  access_token = json["access_token"];
+  userProperties.setProperty("access_token", access_token);
+  userProperties.setProperty("access_time", access_time);
+  
+  if (json.hasOwnProperty("refresh_token")) {
+    refresh_token = json["refresh_token"];
+    userProperties.setProperty("refresh_token", refresh_token);
+    userProperties.setProperty("refresh_time", refresh_time);
+  }
+  
+  return "Bearer " + access_token;   
+}
+
+
+function amtd_GetTokens(s) {
+// Receive the URI, strip out the code, and call Ameritrade to receive Bearer Token and Refresh Token
+// Access token lasts for 30 minutes, refresh token lasts for 90 days before having to require user to authenticate again
+// curl -X POST --header "Content-Type: application/x-www-form-urlencoded" -d "grant_type=refresh_token&refresh_token=<refresh_token>&redirect_uri=https%3A%2F%2F127.0.0.1" "https:api.tdameritrade.com/v1/oauth2/token"
+   
+  mycode = decodeURIComponent(s.substring(s.indexOf("code=")+5));
+  
+  var formData = {
+    "grant_type" : "authorization_code",
+    "access_type" : "offline",
+    "code" : mycode,
+    "client_id" : apikey,
+    "redirect_uri" : "https://127.0.0.1"
+  }
+  var options = {
+    "method" : "post",
+    "payload" : formData
+  }
+  var myurl="https://api.tdameritrade.com/v1/oauth2/token";
+  var result=UrlFetchApp.fetch(myurl, options);
+  
+  //Parse JSON
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  
+  access_token = json["access_token"];
+  refresh_token = json["refresh_token"];
+  
+  userProperties.setProperty("access_token", access_token);
+  userProperties.setProperty("access_time", new Date());
+  userProperties.setProperty("refresh_token", refresh_token);
+  userProperties.setProperty("refresh_time", new Date());
+  
+  amtd_putTokens();  //For debugging 
+
+  Logger.log("access_token : " + access_token + " refresh_token : " + refresh_token);
+}
+
+/*****************************UTILITY FUNCTIONS****************************************************************/
+
+function amtd_putTokens(tokensheet, rngAccessToken, rngRefreshToken) {
+//put the access and refresh tokens and their times from userProperties in the spreadsheet
+
+  var tokensheet = "TDA - Orders";    //For Ameritrade API w Google Scripts
+
+  
+  
+  var currentssht = SpreadsheetApp.getActive();
+  var sourcesht = currentssht.getSheetByName(tokensheet);
+  
+  var access_token = userProperties.getProperty("access_token");
+  var access_time = userProperties.getProperty("access_time");
+  var refresh_token = userProperties.getProperty("refresh_token");
+  var refresh_time = userProperties.getProperty("refresh_time");
+  
+  sourcesht.getRange(rngAccessToken).setValue(access_token);
+  sourcesht.getRange(rngAccessToken).offset(0, -1).setValue(access_time);
+  sourcesht.getRange(rngRefreshToken).setValue(refresh_token);
+  sourcesht.getRange(rngRefreshToken).offset(0, -1).setValue(refresh_time);
+}
+
+/* Functions */
+function right(str, chr) {
+  return str.slice(str.length-chr,str.length);
+}
+ 
+function left(str, chr) {
+  return str.slice(0, chr - str.length);
+}
+
+
+/***************************** Pull Orders ****************************************************************/
+
+function amtd_orders() {
+
+  var authorization = amtd_GetBearerString_();
+  var currentssht = SpreadsheetApp.getActive();
+  var sheet = currentssht.getSheetByName("TDA - Orders");
+  var MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
+  var now = new Date();
+  var to = new Date(now.getTime() - 60 * MILLIS_PER_DAY);
+  var curDate = Utilities.formatDate(new Date(), 'America/Los_Angeles', "yyyy-MM-dd").toString();
+  //var secondDate = "2022-01-07";
+  var type = "TRADE";
+  var symbol = "";
+  var accountId = "";
+  var maxResult = 1000;
+  var options2 = {
+    "method" : "GET",
+    "headers": {"Authorization": authorization},
+  }
+  
+  var lastRow = sheet.getLastRow()
+  
+  sheet.getRange("AG1").setValue(authorization);
+ 
+  
+  //Clear Sheet every run
+  //sheet.getRange("I4:P"+lastRow).clearContent();
+  
+  //Create url and fetch it
+  
+  var foptions2 = "?type="+type+"&startDate="+curDate+"&endDate="+curDate;
+  var myurl2="https://api.tdameritrade.com/v1/accounts/"+accountId+"/transactions"+foptions2;
+  
+  
+  //https://api.tdameritrade.com/v1/accounts/277405349/transactions?type=TRADE&startDate=2020-11-01&endDate=2021-06-30
+  //https://api.tdameritrade.com/v1/accounts/277405349/transactions?type=TRADE&startDate=2020-11-01&endDate=2021-07-30
+  
+  var result2=UrlFetchApp.fetch(myurl2, options2);
+
+  
+  //Parse JSON
+  var contents = result2.getContentText();
+  var json = JSON.parse(contents);
+  
+  var cnt = Object.keys(json).length;  
+   
+  
+  //2d array
+  var value = [],
+      type2,
+      ticker,
+      instruction,
+      quantity,
+      otime,
+      cusip,
+      premium,
+      fees,
+      commission,
+      description;
+  
+  var sheet_is = currentssht.getSheetByName("Input_Shares")
+  var sheet_io = currentssht.getSheetByName("Input_Options");
+  var lastrow2 = sheet.getRange("L3:L").getValues();
+  var lastrow2_1 = lastrow2.filter(String).length -1;
+  var lastrow2_2 = lastrow2.filter(String).length + 3;
+  var rng = sheet.getRange(4,2,lastrow2_2,18);
+  var rngA = rng.getValues();
+    
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+    
+    //For skipping variable
+    skip = 0;
+    
+    // Make sure type = "TRADE". TD is retarded sometimes.
+    type2 = json[j]["type"];
+    
+    
+    if(type2 == "TRADE"){
+      
+      //Ticker
+      var level = "transactionItem.instrument.symbol";
+      
+      level = level.split("."); 
+      ticker = json[j];
+      
+      
+      for (var i = 0; i < level.length; i++) {
+        ticker = ticker[level[i]];
+      } 
+      
+      //Description 
+      description = json[j]["description"].toUpperCase();
+      
+      
+      //Order Time
+      otime = json[j]["transactionDate"];
+      otime = otime.substring(0,10);
+      
+      
+      ////Instruction
+      var level2 = "transactionItem.instruction";
+      
+      level2 = level2.split(".");
+      instruction = json[j];
+      
+      
+      for (var i = 0; i < level2.length; i++) {
+          instruction = instruction[level2[i]]; 
+      }
+      
+      
+      if (description == "OPTION ASSIGNMENT" && instruction == "BUY"){
+        instruction = "BUY - ASSIGNED";
+      }
+      else if (description == "OPTION ASSIGNMENT" && instruction == "SELL"){
+        instruction = "SELL - CALLED";
+      } 
+      
+      ////Quantity
+      var level3 = "transactionItem.amount";
+      
+      level3 = level3.split(".");
+      quantity = json[j];
+      
+      
+      for (var i = 0; i < level3.length; i++) {
+        quantity = quantity[level3[i]];
+      }
+      
+      
+      ////cusip
+      var level4 = "transactionItem.instrument.cusip";
+      
+      level4 = level4.split(".");
+      cusip = json[j];
+      
+      
+      for (var i = 0; i < level4.length; i++) {
+        cusip = cusip[level4[i]]; 
+      }
+      
+      ////Premium
+      var level5 = "transactionItem.price";
+      
+      level5 = level5.split(".");
+      premium = json[j];
+      
+      
+      for (var i = 0; i < level5.length; i++) {
+        premium = premium[level5[i]]; 
+      }
+      
+      ////Fee
+      var level6 = "fees.regFee";
+      
+      level6 = level6.split(".");
+      fees = json[j];
+      
+      
+      for (var i = 0; i < level6.length; i++) {
+        fees = fees[level6[i]]; 
+      }
+      
+      
+      ////Commission
+      var level7 = "fees.commission";
+      
+      level7 = level7.split(".");
+      commission = json[j];
+      
+      
+      for (var i = 0; i < level7.length; i++) {
+        commission = commission[level7[i]]; 
+      }
+      
+      ////Filter out existing (dupe) orders 
+      for(var k = 0; k < rngA.length; k++){
+        
+        if(cusip == rngA[k][14] && instruction == rngA[k][9]) skip = 1;
+      }
+      if(skip == 1) continue;
+    }
+    
+    else {
+      continue;
+    }
+    
+    value.push([ticker, quantity, instruction, otime, premium, fees, commission, cusip]);
+    
+    
+  }
+  
+  
+  //Update Refresh time after every run
+  sheet.getRange(1,3,1,1).setValue(new Date());
+  
+  //End Script if no results
+  if (value.length <1) return;
+  
+  //Populate output
+  sheet.getRange(lastrow2_2,9,value.length,8).setValues(value);
+  
+  
+  //Refresh spreadsheet
+  SpreadsheetApp.flush();
+  
+  
+  // Update data to Input_Options tab
+  var lastrow2 = sheet.getRange("L3:L").getValues();
+  var lastrow2_1 = lastrow2.filter(String).length;
+  var rng = sheet.getRange(4,2,lastrow2_1,18);
+  var rngB = rng.getValues();
+  
+  rng.sort({column: 12, ascending: true});
+  var rngB = rng.getValues();//Array of input values
+
+  for(var i = 0; i < rngB.length; i++)
+    if (rngB[i][2] == 'Options' && rngB[i][9] == 'SELL' && rngB[i][16] == ''){
+      
+      
+        var lastrow4 = sheet_io.getRange("C5:C").getValues();
+        var lastrow4_1 = lastrow4.filter(String).length + 4 + 1;  
+      
+      
+        // Ticker
+        sheet_io.getRange(lastrow4_1,3).setValue(rngB[i][0]);
+      
+        // CSP/CC
+        sheet_io.getRange(lastrow4_1,4).setValue(rngB[i][1]);
+      
+        // Strike
+        sheet_io.getRange(lastrow4_1,5).setValue(rngB[i][5]);
+      
+        // Quantity
+        sheet_io.getRange(lastrow4_1,6).setValue(rngB[i][8]);
+      
+        // Premium
+        sheet_io.getRange(lastrow4_1,8).setValue(rngB[i][11]);
+       
+        // Order Date
+        sheet_io.getRange(lastrow4_1,11).setValue(rngB[i][15]);
+      
+        // Expiration
+        sheet_io.getRange(lastrow4_1,12).setValue(rngB[i][6]);
+      
+        // Fees
+        sheet_io.getRange(lastrow4_1,22).setValue(rngB[i][12]);
+      
+    
+          
+    }
+    else if (rngB[i][2] == 'Options' && rngB[i][9] == 'BUY' && rngB[i][16] == ''){
+      
+      var lastrow3 = sheet_io.getRange("C5:C").getValues();
+      var lastrow3_1 = lastrow3.filter(String).length + 4;  
+      var rng_io_lk = sheet_io.getRange(1,61,lastrow3_1,1);
+      var rng_io_lk_1 = rng_io_lk.getValues();
+      var btc_lookup = rngB[i][17];
+      
+      
+      for(var j = 0; j < rng_io_lk_1.length; j++){    
+        if(btc_lookup == rng_io_lk_1[j][0] && sheet_io.getRange(j+1,13,1,1).getValue() == ''){
+          
+          // Order Date
+          sheet_io.getRange(j+1,13,1,1).setValue(rngB[i][15]);
+          
+          // Premium
+          sheet_io.getRange(j+1,14,1,1).setValue(rngB[i][11]);
+          
+          // Fees
+          sheet_io.getRange(j+1,23,1,1).setValue(rngB[i][12]);
+          
+          
+          
+       }
+      }
+     } 
+  
+  ;
