@@ -1,0 +1,688 @@
+
+function data() {
+
+  var currentssht = SpreadsheetApp.getActive();
+  var apikey = "";
+  var sheet = currentssht.getSheetByName("Data");
+ 
+  var MILLIS_PER_DAY = 1000 * 60 * 60 * 24;
+  var now = new Date();
+  var to = new Date(now.getTime() - 60 * MILLIS_PER_DAY);
+  var since = 1293980400
+  var curDate = Utilities.formatDate(new Date(), 'America/Los_Angeles', "yyyy-MM-dd").toString();
+  //var secondDate = "2020-11-16";
+  var symbol = "BTC";
+  var freq = "24h"
+  var format = "CSV";
+  var curr = "USD";
+  var options = {
+    "method" : "GET",
+  }
+ 
+  
+  var value=[],
+      value2=[],
+      value3=[],
+      value4=[],
+      value5=[],
+      value6=[],
+      value7=[],
+      value8=[],
+      value9=[],
+      value10=[],
+      value11=[],
+      value12=[],
+      value13=[],
+      value14=[],
+      value15=[],
+      value16=[],
+      time,
+      supply,
+      supply_adj,
+      inflation,
+      price,
+      send,
+      receive,
+      total,
+      greater_one,
+      greater_ten,
+      mcap,
+      rcap,
+      s2f,
+      halving,
+      hash,
+      revenue,
+      puell,
+      revenue_fees
+      
+  
+  //Clear Sheet every run
+  sheet.getRange("A2:F").clearContent();
+  sheet.getRange("H2:S").clearContent();
+ 
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Supply
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/supply/current"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Time
+    time = json[j]["t"];
+    time = new Date(time *1000)
+    var year = time.getFullYear();
+      var month = (1 + time.getMonth()).toString();
+      month = month.length > 1 ? month : '0' + month;
+      var day = time.getDate().toString();
+      day = day.length > 1 ? day : '0' + day;
+      formatted_dt = month + "/" + day + "/" + year;
+    
+    //Supply
+    supply = json[j]["v"];
+    
+    //Output
+    value.push([formatted_dt, supply]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,1,value.length,value[0].length).setValues(value);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Adjusted Supply
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/supply/current_adjusted"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Adj Supply
+    supply_adj = json[j]["v"];
+    
+    //Output
+    value2.push([supply_adj]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,3,value2.length,value2[0].length).setValues(value2);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Inflation Rate
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/supply/inflation_rate"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Inflation
+    inflation = json[j]["v"];
+ 
+    //Output
+    value3.push([inflation]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,4,value3.length,value3[0].length).setValues(value3);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Sending Addresses
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/addresses/sending_count"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+
+    //Sending
+    send = json[j]["v"];
+    
+    //Output
+    value4.push([send]);
+    
+  }  
+ 
+  //Paste output into Sheet
+  sheet.getRange(2,5,value4.length,value4[0].length).setValues(value4);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Receiving Addresses
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/addresses/receiving_count"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Receiving
+    receive = json[j]["v"];
+    
+    //Output
+    value5.push([receive]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,6,value5.length,value5[0].length).setValues(value5);
+  
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Non-Zero Addresses
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/addresses/non_zero_count"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Total
+    total = json[j]["v"];
+    
+    //Output
+    value6.push([total]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,8,value6.length,value6[0].length).setValues(value6);
+  
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //>=1 Addresses
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/addresses/min_1_count"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //>1
+    greater_one = json[j]["v"];
+    
+    //Output
+    value7.push([greater_one]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,9,value7.length,value7[0].length).setValues(value7);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //>=10 Addresses (Whale)
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/addresses/min_10_count"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //>10
+    greater_ten = json[j]["v"];
+    
+    //Output
+    value8.push([greater_ten]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,10,value8.length,value8[0].length).setValues(value8);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Market Cap
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/market/marketcap_usd"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    
+    //Market Cap
+    mcap = json[j]["v"];
+    
+    //Output
+    value9.push([mcap]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,11,value9.length,value9[0].length).setValues(value9);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Realized Cap
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/market/marketcap_realized_usd"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Realized Cap
+    rcap = json[j]["v"];
+    
+    //Output
+    value10.push([rcap]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,12,value10.length,value10[0].length).setValues(value10);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //S2F
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/indicators/stock_to_flow_ratio"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    
+    //S2F
+    s2f = json[j]["o"]["ratio"];
+    
+    //Days Till Halving
+    halving = json[j]["o"]["daysTillHalving"];
+    
+    //Output
+    value11.push([s2f, halving]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,13,value11.length,value11[0].length).setValues(value11);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Hash Rate
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/mining/hash_rate_mean"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    
+    //Hash Rate
+    hash = json[j]["v"];
+    
+    //Output
+    value12.push([hash]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,15,value12.length,value12[0].length).setValues(value12);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Total Miner Revenue
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/mining/revenue_sum"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Revenue
+    revenue = json[j]["v"];
+    
+    //Output
+    value13.push([revenue]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,16,value13.length,value13[0].length).setValues(value13);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Puell Multiple
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/indicators/puell_multiple"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length-1;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Puell
+    puell = json[j]["v"];
+ 
+    //Output
+    value14.push([puell]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(198,17,value14.length,value14[0].length).setValues(value14);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Revenue from Fees
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/mining/revenue_from_fees"+foptions;
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length;  
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Revenue from Fees
+    revenue_fees = json[j]["v"];
+ 
+    //Output
+    value15.push([revenue_fees]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,18,value15.length,value15[0].length).setValues(value15);
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Price
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var foptions = "?a="+symbol+"&s="+since+"&i="+freq+"&api_key="+apikey;
+  var myurl="https://api.glassnode.com/v1/metrics/market/price_usd_close"+foptions;
+
+  var result=UrlFetchApp.fetch(myurl, options);
+  
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var cnt = Object.keys(json).length-1;  
+    
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    
+    //Price
+    price = json[j]["v"];
+    
+    //Output
+    value16.push([price]);
+    
+  }
+  
+  //Paste output into Sheet
+  sheet.getRange(2,19,value16.length,value16[0].length).setValues(value16);
+  
+  
+  
+  
+  
+
+  
+  var sheet2 = currentssht.getSheetByName("Balance on Exchanges");
+  var sheet = currentssht.getSheetByName("Data");
+
+  
+  var lastrow = sheet.getRange("A1:A").getValues();
+  var lastrow_1 = lastrow.filter(String).length;
+  var lastrow2 = sheet2.getRange("A1:A").getValues();
+  var lastrow2_1 = lastrow2.filter(String).length;
+  
+  Logger.log(lastrow_1);
+  
+  // get source range
+  var source = sheet2.getRange(2,21,lastrow_1,1);
+  // get destination range
+  var destination = sheet.getRange(229,28,lastrow_1,1);
+
+  // copy values to destination range
+  source.copyTo(destination,SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+  
+  
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Label
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  sheet.getRange(1,1,1,1).setValue("Time");
+  sheet.getRange(1,2,1,1).setValue("Supply");
+  sheet.getRange(1,3,1,1).setValue("Adjusted Supply");
+  sheet.getRange(1,4,1,1).setValue("Inflation Rate");
+  sheet.getRange(1,5,1,1).setValue("Sending Count");
+  sheet.getRange(1,6,1,1).setValue("Receiving Count");
+  sheet.getRange(1,7,1,1).setValue("Total Active Count");
+  sheet.getRange(1,8,1,1).setValue("Total Addresses");
+  sheet.getRange(1,9,1,1).setValue("Total >1 Addresses");
+  sheet.getRange(1,10,1,1).setValue("Total >10 Addresses");
+  sheet.getRange(1,11,1,1).setValue("Market Cap");
+  sheet.getRange(1,12,1,1).setValue("Realized Cap");
+  sheet.getRange(1,13,1,1).setValue("S2F");
+  sheet.getRange(1,14,1,1).setValue("Days Till Halving");
+  sheet.getRange(1,15,1,1).setValue("Hash Rate");
+  sheet.getRange(1,16,1,1).setValue("Total Miner Revenue");
+  sheet.getRange(1,17,1,1).setValue("Puell Multiple");
+  sheet.getRange(1,18,1,1).setValue("Revenue from Fees");
+  sheet.getRange(1,19,1,1).setValue("Price");
+  sheet.getRange(1,20,1,1).setValue("Latest Date");
+  sheet.getRange(1,21,1,1).setValue("Second Latest Date");
+  sheet.getRange(1,22,1,1).setValue("Selected Dates");
+  
+  
+}
+ 
+ 
+ 
+function news() {
+
+  var currentssht = SpreadsheetApp.getActive();
+  var sheet = currentssht.getSheetByName("News");
+  var curDate = Utilities.formatDate(new Date(), 'America/Los_Angeles', "yyyy-MM-dd").toString();
+  var options = {
+    "method" : "GET",
+  }
+ 
+  
+  var value=[],
+      title,
+      url,
+      time,
+      description
+      
+  
+  //Clear Sheet every run
+  sheet.getRange("A2:D").clearContent();
+
+ 
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //News
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var myurl="https://newsapi.org/v2/everything?q=+bitcoin&qInTitle=+bitcoin&sortby=popularity&apiKey=cd500800bfb3435f9b53e9551eac6b59";
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var json = json["articles"];
+  var cnt = Object.keys(json).length;  
+  
+  Logger.log(json);
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < 1; j++) {  
+  
+    //Time
+    time = json[j]["publishedAt"];
+    time = time.substring(0,10);
+    
+    //Title
+    title = json[j]["title"];
+    
+    //Description
+    description = json[j]["description"];
+    
+    //URL
+    url = json[j]["url"];
+    
+    //Output
+    value.push([time,title,description,url]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,1,value.length,value[0].length).setValues(value);
+}  
+
+function fearandgreed() {
+
+  var currentssht = SpreadsheetApp.getActive();
+  var sheet = currentssht.getSheetByName("Fear and Greed");
+  var curDate = Utilities.formatDate(new Date(), 'America/Los_Angeles', "yyyy-MM-dd").toString();
+  var options = {
+    "method" : "GET",
+  }
+  
+  //Clear Sheet every run
+  sheet.getRange("A2:C").clearContent();
+
+  var time,
+      index,
+      classification,
+      value = [];
+ 
+  
+  ///////////////////////////////////////////////////////////////////////////////////
+  //Fear and Greed
+  ///////////////////////////////////////////////////////////////////////////////////
+  
+  var myurl="https://api.alternative.me/fng/?limit=0&format=json&date_format=us";
+  var result=UrlFetchApp.fetch(myurl, options);
+  var contents = result.getContentText();
+  var json = JSON.parse(contents);
+  var json = json["data"];
+  var cnt = Object.keys(json).length;  
+  
+  Logger.log(json);
+  
+  //create a 1D array first with pushing 0,1,2 elements with a for loop
+  for (var j = 0; j < cnt; j++) {  
+  
+    //Time
+    time = json[j]["timestamp"];
+    time = time.substring(0,10);
+    
+    //classification
+    classification = json[j]["value_classification"];
+    
+    //value
+    index = json[j]["value"];
+    
+    //Output
+    value.push([time,classification,index]);
+    
+  }  
+
+  //Paste output into Sheet
+  sheet.getRange(2,1,value.length,value[0].length).setValues(value);
+  
+  var rng = sheet.getRange(2,1,value.length,value[0].length);
+  
+  rng.sort({column: 1, ascending: true});
+  
+}  
+
+function dailyrun() {
+  
+  data();
+  hodl();
+  news();
+  fearandgreed();
+  balance();
+  amtd_indices();
+  
+  
+}
