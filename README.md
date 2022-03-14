@@ -1,4 +1,3 @@
-# Kevin Chiu Portfolio
 
 
 # [Bitcoin Dashboard (Inspired by Coinbase UI)](https://tabsoft.co/3HJIoBg)
