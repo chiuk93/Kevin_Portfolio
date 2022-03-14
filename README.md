@@ -1,5 +1,7 @@
 # Kevin Chiu Portfolio
 
+# [Sample SQL Script Here](code/sample_sql.sql)
+
 
 # [Bitcoin Dashboard (Inspired by Coinbase UI)](https://tabsoft.co/3HJIoBg)
 * Developed an automated dashboard on Tableau Public that tracks on-chain metrics for Bitcoin: including circulating supply, total supply on exchanges, inflation rate, hash rate, stock-to-flow, google search trends, etc.
