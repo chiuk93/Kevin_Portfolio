@@ -12,7 +12,8 @@
 
 
 # Trading Dashboard
-* Developed a trading dashboard tracing key performance metrics in Google Sheets for an investment club that I co-founded: including total realized return, total unrealized return, win rate, loss rate, assignment rate, etc.
+* Developed a trading dashboard track
+ing key performance metrics in Google Sheets for an investment club that I co-founded: including total realized return, total unrealized return, win rate, loss rate, assignment rate, etc.
 * All trading data are extracted via TD Ameritrade API and refreshed automatically daily using Google App Script.
 * Built automation in Google App Scipt to process and audit trades to ensure data accuracy for tax reporting purposes.
 
