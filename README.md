@@ -55,6 +55,30 @@ scan ──▶ judge ──▶ digest ──▶ you implement ──▶ mark don
    branch, so merge this to `main` (or trigger manually via *Actions →
    reddit-recall → Run workflow* until then).
 
+## 📱 Phone app
+
+`app/` is an installable web app (PWA) that gives you the whole system on your
+phone: the backlog with one-tap status changes, every digest, and the judging
+profile — editable on the go.
+
+**Setup (once):**
+
+1. Enable GitHub Pages: repo *Settings → Pages → Source: Deploy from a branch →*
+   `main` / root. The app then lives at
+   `https://chiuk93.github.io/Kevin_Portfolio/app/`.
+2. Open that URL in Chrome on Android → menu → **Add to Home screen**.
+   It installs with an icon and opens fullscreen like a native app.
+3. *(Optional, for making changes from the phone)* create a fine-grained
+   GitHub token (*Settings → Developer settings → Fine-grained tokens*) scoped
+   to only this repo with **Contents: Read and write**, and paste it into the
+   app's Settings tab. Without a token the app is read-only.
+
+Status changes and profile edits made in the app are committed straight back
+to this repo — the same source of truth the weekly miner reads — so marking an
+idea `rejected` from your phone teaches next Monday's run. (`BACKLOG.md` may
+lag a phone edit until the next run regenerates it; `data/backlog.json` is
+always authoritative.)
+
 ## Commands
 
 ```bash

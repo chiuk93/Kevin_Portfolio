@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reddit Recall</title>
+<meta name="theme-color" content="#0f1420">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  :root {
+    --bg: #0f1420; --card: #1a2130; --card2: #212a3d; --text: #e8ecf4;
+    --muted: #93a0b5; --accent: #ff4500; --gold: #ffd166; --green: #3ddc84;
+    --red: #ff6b6b; --blue: #6ea8fe; --border: #2b3550;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+  header {
+    position: sticky; top: 0; z-index: 5; background: rgba(15,20,32,.92);
+    backdrop-filter: blur(8px); padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  header img { width: 28px; height: 28px; border-radius: 7px; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header .sub { margin-left: auto; font-size: 12px; color: var(--muted); }
+  main { padding: 14px 14px 24px; max-width: 720px; margin: 0 auto; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip {
+    font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    background: var(--card2); color: var(--muted); border: 1px solid var(--border);
+    cursor: pointer; user-select: none;
+  }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; margin: 12px 0;
+  }
+  .card h3 { font-size: 16px; margin-bottom: 6px; }
+  .meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .impact { color: var(--gold); letter-spacing: 2px; }
+  .status { font-weight: 600; }
+  .status.new { color: var(--blue); } .status.reviewing { color: var(--gold); }
+  .status.implementing { color: var(--accent); } .status.done { color: var(--green); }
+  .status.rejected { color: var(--red); }
+  .body p { margin: 6px 0; font-size: 14px; }
+  .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .verdict { border-left: 3px solid var(--gold); padding-left: 10px; font-style: italic; }
+  a { color: var(--blue); text-decoration: none; word-break: break-all; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .actions button {
+    flex: 1 1 auto; min-width: 84px; padding: 8px 6px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--card2); color: var(--text); font-size: 13px; cursor: pointer;
+  }
+  .actions button:disabled { opacity: .35; }
+  .actions button.done { border-color: var(--green); } .actions button.rejected { border-color: var(--red); }
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0; display: flex; z-index: 5;
+    background: rgba(15,20,32,.96); border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  nav button {
+    flex: 1; padding: 12px 0 10px; background: none; border: none; color: var(--muted);
+    font-size: 12px; cursor: pointer;
+  }
+  nav button .ico { display: block; font-size: 20px; margin-bottom: 2px; }
+  nav button.active { color: var(--accent); }
+  .empty { text-align: center; color: var(--muted); padding: 48px 12px; }
+  input, textarea, select {
+    width: 100%; background: var(--card2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 10px 12px; font: inherit; margin: 6px 0 14px;
+  }
+  textarea { min-height: 320px; font: 13px/1.5 ui-monospace, monospace; }
+  .btn {
+    background: var(--accent); border: none; color: #fff; font-weight: 600;
+    padding: 12px 18px; border-radius: 10px; cursor: pointer; width: 100%;
+  }
+  .btn.secondary { background: var(--card2); border: 1px solid var(--border); }
+  .note { font-size: 13px; color: var(--muted); margin: 8px 0; }
+  .md h1, .md h2, .md h3 { margin: 14px 0 6px; }
+  .md h1 { font-size: 20px; } .md h2 { font-size: 17px; } .md h3 { font-size: 15px; }
+  .md p, .md li { font-size: 14px; margin: 6px 0; }
+  .md ul { padding-left: 20px; }
+  .md code { background: var(--card2); padding: 1px 6px; border-radius: 6px; font-size: 13px; }
+  .md hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
+  #toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: var(--card2); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 18px; border-radius: 12px; font-size: 14px; display: none; z-index: 10;
+    max-width: 90vw;
+  }
+</style>
+</head>
+<body>
+<header>
+  <img src="icons/icon-192.png" alt="">
+  <h1>Reddit Recall</h1>
+  <span class="sub" id="branchLabel"></span>
+</header>
+<main id="view"></main>
+<nav>
+  <button data-tab="backlog" class="active"><span class="ico">💡</span>Backlog</button>
+  <button data-tab="digests"><span class="ico">📰</span>Digests</button>
+  <button data-tab="profile"><span class="ico">🎯</span>Profile</button>
+  <button data-tab="settings"><span class="ico">⚙️</span>Settings</button>
+</nav>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ---------- config ---------- */
+const DEFAULT_REPO = "chiuk93/Kevin_Portfolio";
+const cfg = {
+  get repo()   { return localStorage.getItem("rr.repo")   || DEFAULT_REPO; },
+  get branch() { return localStorage.getItem("rr.branch") || "main"; },
+  get token()  { return localStorage.getItem("rr.token")  || ""; },
+};
+const STATUSES = ["new", "reviewing", "implementing", "done", "rejected"];
+const OPEN = ["new", "reviewing", "implementing"];
+let tab = "backlog";
+let filter = "open";
+let backlogCache = null;
+
+/* ---------- github access ---------- */
+function ghHeaders() {
+  const h = { "Accept": "application/vnd.github+json" };
+  if (cfg.token) h["Authorization"] = "Bearer " + cfg.token;
+  return h;
+}
+function b64decode(b64) {
+  const bin = atob(b64.replace(/\n/g, ""));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+function b64encode(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+async function apiGetFile(path) {
+  const r = await fetch(
+    `https://api.github.com/repos/${cfg.repo}/contents/${path}?ref=${cfg.branch}`,
+    { headers: ghHeaders() });
+  if (!r.ok) throw new Error(`API ${r.status} for ${path}`);
+  const j = await r.json();
+  return { text: b64decode(j.content), sha: j.sha };
+}
+async function loadFile(path) {
+  try { return (await apiGetFile(path)).text; } catch (e) { /* fall through */ }
+  try {
+    const r = await fetch(`https://raw.githubusercontent.com/${cfg.repo}/${cfg.branch}/${path}`);
+    if (r.ok) return await r.text();
+  } catch (e) { /* fall through */ }
+  const r = await fetch(`../${path}`, { cache: "no-store" });  // local / Pages-relative
+  if (r.ok) return await r.text();
+  throw new Error(`Could not load ${path}`);
+}
+async function saveFile(path, mutate, message) {
+  if (!cfg.token) throw new Error("Add a GitHub token in Settings to make changes.");
+  const { text, sha } = await apiGetFile(path);
+  const updated = mutate(text);
+  if (updated === null) return false;
+  const r = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/${path}`, {
+    method: "PUT", headers: ghHeaders(),
+    body: JSON.stringify({ message, content: b64encode(updated), sha, branch: cfg.branch }),
+  });
+  if (!r.ok) throw new Error(`Save failed (${r.status}): ${(await r.text()).slice(0, 140)}`);
+  return true;
+}
+
+/* ---------- helpers ---------- */
+const view = document.getElementById("view");
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+function toast(msg, ms = 2600) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", ms);
+}
+function impactDots(n) { return "●".repeat(n) + "○".repeat(Math.max(0, 5 - n)); }
+function mdToHtml(md) {
+  const lines = esc(md).split("\n");
+  let html = "", inList = false;
+  const inline = s => s
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[^"(>])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  for (const line of lines) {
+    const li = line.match(/^\s*[-*]\s+(.*)/);
+    if (li) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${inline(li[1])}</li>`; continue; }
+    if (inList) { html += "</ul>"; inList = false; }
+    if (/^###\s/.test(line)) html += `<h3>${inline(line.slice(4))}</h3>`;
+    else if (/^##\s/.test(line)) html += `<h2>${inline(line.slice(3))}</h2>`;
+    else if (/^#\s/.test(line)) html += `<h1>${inline(line.slice(2))}</h1>`;
+    else if (/^---+\s*$/.test(line)) html += "<hr>";
+    else if (line.trim() === "") html += "";
+    else if (/^\|/.test(line)) html += `<p style="font-family:monospace;font-size:12px">${inline(line)}</p>`;
+    else html += `<p>${inline(line)}</p>`;
+  }
+  if (inList) html += "</ul>";
+  return html;
+}
+
+/* ---------- backlog tab ---------- */
+async function renderBacklog(useCache = false) {
+  let ideas = useCache ? backlogCache : null;
+  if (!ideas) {
+    view.innerHTML = '<div class="empty">Loading backlog…</div>';
+    try {
+      ideas = JSON.parse(await loadFile("data/backlog.json"));
+      backlogCache = ideas;
+    } catch (e) {
+      view.innerHTML = `<div class="empty">No backlog yet.<br><span class="note">Run the miner once (locally or via the GitHub Action) and it will appear here.<br><br>${esc(e.message)}</span></div>`;
+      return;
+    }
+  }
+  const counts = { open: 0 };
+  for (const s of STATUSES) counts[s] = 0;
+  ideas.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; if (OPEN.includes(i.status)) counts.open++; });
+
+  const chips = ["open", ...STATUSES].map(s =>
+    `<span class="chip ${filter === s ? "active" : ""}" data-f="${s}">${s} ${counts[s] || 0}</span>`).join("");
+
+  let shown = ideas.filter(i => filter === "open" ? OPEN.includes(i.status) : i.status === filter);
+  shown = shown.sort((a, b) => b.impact - a.impact || (a.created_at < b.created_at ? 1 : -1));
+
+  view.innerHTML = `<div class="row" id="chips">${chips}</div>` + (
+    shown.length === 0
+      ? '<div class="empty">Nothing here. 🎉</div>'
+      : shown.map(cardHtml).join("")
+  );
+  document.getElementById("chips").addEventListener("click", e => {
+    const f = e.target.dataset?.f; if (f) { filter = f; renderBacklog(true); }
+  });
+  view.querySelectorAll("[data-mark]").forEach(btn => btn.addEventListener("click", () => mark(btn.dataset.id, btn.dataset.mark)));
+}
+function cardHtml(i) {
+  const btns = STATUSES.filter(s => s !== i.status).map(s =>
+    `<button class="${s}" data-id="${esc(i.id)}" data-mark="${s}" ${cfg.token ? "" : "disabled"}>${s}</button>`).join("");
+  return `<div class="card">
+    <h3>${esc(i.title)}</h3>
+    <div class="meta">
+      <span class="status ${esc(i.status)}">${esc(i.status)}</span>
+      <span class="impact" title="impact">${impactDots(i.impact)}</span>
+      <span>${esc(i.effort)} effort</span><span>${esc(i.category)}</span>
+      <span>${esc((i.created_at || "").slice(0, 10))}</span>
+    </div>
+    <div class="body">
+      <p>${esc(i.summary)}</p>
+      ${i.verdict ? `<p class="verdict">${esc(i.verdict)}</p>` : ""}
+      <p><span class="label">First step</span><br>${esc(i.first_step)}</p>
+      <p><a href="${esc(i.source_permalink)}" target="_blank" rel="noopener">source ↗</a></p>
+    </div>
+    <div class="actions">${btns}</div>
+  </div>`;
+}
+async function mark(id, status) {
+  try {
+    toast(`Marking ${id} → ${status}…`, 8000);
+    await saveFile("data/backlog.json", text => {
+      const ideas = JSON.parse(text);
+      const idea = ideas.find(x => x.id === id);
+      if (!idea) { toast("Idea not found in latest data — refresh."); return null; }
+      idea.status = status;
+      idea.updated_at = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+      return JSON.stringify(ideas, null, 2) + "\n";
+    }, `app: mark ${id} ${status}`);
+    toast(`✓ ${id} → ${status}`);
+    renderBacklog();
+  } catch (e) { toast(e.message, 5000); }
+}
+
+/* ---------- digests tab ---------- */
+async function renderDigests() {
+  view.innerHTML = '<div class="empty">Loading digests…</div>';
+  let entries = [];
+  try {
+    const r = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/digests?ref=${cfg.branch}`,
+      { headers: ghHeaders() });
+    if (r.status === 404) { view.innerHTML = '<div class="empty">No digests yet.</div>'; return; }
+    if (!r.ok) throw new Error(`API ${r.status}`);
+    entries = (await r.json()).filter(f => f.name.endsWith(".md"))
+      .sort((a, b) => a.name < b.name ? 1 : -1);
+  } catch (e) {
+    view.innerHTML = `<div class="empty">Couldn't list digests.<br><span class="note">${esc(e.message)}</span></div>`;
+    return;
+  }
+  if (entries.length === 0) { view.innerHTML = '<div class="empty">No digests yet.</div>'; return; }
+  view.innerHTML = entries.slice(0, 12).map(f =>
+    `<div class="card"><h3>📰 ${esc(f.name.replace(".md", ""))}</h3><div class="md" data-path="digests/${esc(f.name)}">Loading…</div></div>`
+  ).join("");
+  for (const el of view.querySelectorAll(".md[data-path]")) {
+    try { el.innerHTML = mdToHtml(await loadFile(el.dataset.path)); }
+    catch (e) { el.textContent = "Failed to load."; }
+  }
+}
+
+/* ---------- profile tab ---------- */
+async function renderProfile() {
+  view.innerHTML = '<div class="empty">Loading profile…</div>';
+  let text = "";
+  try { text = await loadFile("context/profile.md"); }
+  catch (e) { text = "# My profile\n\n(no profile yet)"; }
+  view.innerHTML = `
+    <p class="note">This is the lens every Reddit idea is judged through. Sharpen it and the picks get better.</p>
+    <textarea id="profileText">${esc(text)}</textarea>
+    <button class="btn" id="saveProfile" ${cfg.token ? "" : "disabled"}>Save profile</button>
+    ${cfg.token ? "" : '<p class="note">Add a GitHub token in Settings to edit from here.</p>'}`;
+  document.getElementById("saveProfile")?.addEventListener("click", async () => {
+    try {
+      toast("Saving profile…", 8000);
+      await saveFile("context/profile.md",
+        () => document.getElementById("profileText").value,
+        "app: update judging profile");
+      toast("✓ Profile saved");
+    } catch (e) { toast(e.message, 5000); }
+  });
+}
+
+/* ---------- settings tab ---------- */
+function renderSettings() {
+  view.innerHTML = `
+    <label class="label">Repository (owner/name)</label>
+    <input id="sRepo" value="${esc(cfg.repo)}">
+    <label class="label">Branch</label>
+    <input id="sBranch" value="${esc(cfg.branch)}">
+    <label class="label">GitHub token (fine-grained, Contents read/write on this repo)</label>
+    <input id="sToken" type="password" value="${esc(cfg.token)}" placeholder="github_pat_… (optional — read-only without it)">
+    <button class="btn" id="sSave">Save settings</button>
+    <p class="note" style="margin-top:16px">
+      Without a token the app is read-only (public repo). With one, status changes and
+      profile edits are committed straight back to the repo — the same source of truth
+      the weekly miner uses. Settings are stored only in this device's browser storage.
+    </p>
+    <p class="note">Install: in Chrome on Android, menu → <b>Add to Home screen</b>.</p>`;
+  document.getElementById("sSave").addEventListener("click", () => {
+    localStorage.setItem("rr.repo", document.getElementById("sRepo").value.trim());
+    localStorage.setItem("rr.branch", document.getElementById("sBranch").value.trim());
+    localStorage.setItem("rr.token", document.getElementById("sToken").value.trim());
+    document.getElementById("branchLabel").textContent = cfg.branch;
+    toast("✓ Settings saved");
+  });
+}
+
+/* ---------- shell ---------- */
+const renderers = { backlog: renderBacklog, digests: renderDigests, profile: renderProfile, settings: renderSettings };
+document.querySelector("nav").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-tab]"); if (!btn) return;
+  tab = btn.dataset.tab;
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b === btn));
+  renderers[tab]();
+});
+document.getElementById("branchLabel").textContent = cfg.branch;
+renderBacklog();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
