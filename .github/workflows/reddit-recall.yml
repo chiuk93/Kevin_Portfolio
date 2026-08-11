@@ -1,0 +1,69 @@
+name: reddit-recall
+
+on:
+  schedule:
+    # Mondays 15:00 UTC (~8am PT). Note: scheduled runs only fire on the
+    # default branch, so this activates once the tool lands on main.
+    - cron: "0 15 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: reddit-recall
+  cancel-in-progress: false
+
+jobs:
+  mine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run the pipeline (fetch -> extract -> digest)
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+          REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python -m reddit_recall run
+
+      - name: Detect new digest
+        id: digest
+        run: |
+          NEW_DIGEST=$(git status --porcelain digests/ | awk '$1 ~ /^(\?\?|A|M)$/ {print $2}' | sort | tail -1)
+          echo "path=$NEW_DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Commit state and digest
+        run: |
+          git config user.name "reddit-recall bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/ digests/ BACKLOG.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "reddit-recall: weekly mining run"
+            git push
+          fi
+
+      - name: Open nudge issue with the digest
+        if: steps.digest.outputs.path != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "Reddit Recall digest — $(date -u +%Y-%m-%d)" \
+            --body-file "${{ steps.digest.outputs.path }}" \
+            --label "reddit-recall" || \
+          gh issue create \
+            --title "Reddit Recall digest — $(date -u +%Y-%m-%d)" \
+            --body-file "${{ steps.digest.outputs.path }}"

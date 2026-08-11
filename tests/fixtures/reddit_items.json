@@ -1,0 +1,35 @@
+[
+  {
+    "id": "t3_fixture1",
+    "kind": "t3",
+    "title": "I set up a hooks pipeline that auto-runs tests after every Claude Code edit",
+    "body": "I added a PostToolUse hook in .claude/settings.json that runs my test suite whenever Claude edits a file. Catches regressions instantly instead of at the end of the session. Config snippet inside.",
+    "link": "",
+    "subreddit": "ClaudeCode",
+    "permalink": "https://reddit.com/r/ClaudeCode/comments/fixture1/",
+    "created_utc": 1754000000,
+    "sources": ["saved"]
+  },
+  {
+    "id": "t3_fixture2",
+    "kind": "t3",
+    "title": "TIL you can pipe your whole git diff into /code-review before every PR",
+    "body": "Been using the /code-review slash command as a pre-PR gate. Found 3 real bugs this week that I would have shipped.",
+    "link": "",
+    "subreddit": "ClaudeAI",
+    "permalink": "https://reddit.com/r/ClaudeAI/comments/fixture2/",
+    "created_utc": 1754100000,
+    "sources": ["upvoted", "saved"]
+  },
+  {
+    "id": "t1_fixture3",
+    "kind": "t1",
+    "title": "Comment in r/ClaudeCode",
+    "body": "Pro tip: keep a CLAUDE.md lessons-learned section and tell Claude to append to it whenever it gets corrected. My sessions got noticeably better after two weeks.",
+    "link": "",
+    "subreddit": "ClaudeCode",
+    "permalink": "https://reddit.com/r/ClaudeCode/comments/fixture3/comment/abc/",
+    "created_utc": 1754200000,
+    "sources": ["saved"]
+  }
+]
