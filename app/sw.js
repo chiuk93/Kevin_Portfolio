@@ -1,6 +1,6 @@
 // Cache the app shell so the installed app opens instantly / offline.
 // Data (GitHub API / raw) is always fetched from the network.
-const CACHE = "reddit-recall-v2";
+const CACHE = "reddit-recall-v3";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {

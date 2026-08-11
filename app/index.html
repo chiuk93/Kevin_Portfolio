@@ -218,15 +218,23 @@ async function renderBacklog(useCache = false) {
       return;
     }
   }
-  const counts = { open: 0 };
+  const mean = i => i.council?.mean ?? 0;
+  const counts = { open: 0, "9+": 0 };
   for (const s of STATUSES) counts[s] = 0;
-  ideas.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; if (OPEN.includes(i.status)) counts.open++; });
+  ideas.forEach(i => {
+    counts[i.status] = (counts[i.status] || 0) + 1;
+    if (OPEN.includes(i.status)) counts.open++;
+    if (mean(i) >= 9) counts["9+"]++;
+  });
 
-  const chips = ["open", ...STATUSES].map(s =>
+  const chips = ["open", "9+", ...STATUSES].map(s =>
     `<span class="chip ${filter === s ? "active" : ""}" data-f="${s}">${s} ${counts[s] || 0}</span>`).join("");
 
-  let shown = ideas.filter(i => filter === "open" ? OPEN.includes(i.status) : i.status === filter);
-  shown = shown.sort((a, b) => b.impact - a.impact || (a.created_at < b.created_at ? 1 : -1));
+  let shown = ideas.filter(i =>
+    filter === "open" ? OPEN.includes(i.status) :
+    filter === "9+" ? mean(i) >= 9 : i.status === filter);
+  shown = shown.sort((a, b) => mean(b) - mean(a) || b.impact - a.impact ||
+    (a.created_at < b.created_at ? 1 : -1));
 
   view.innerHTML = `<div class="row" id="chips">${chips}</div>` + (
     shown.length === 0
@@ -238,6 +246,14 @@ async function renderBacklog(useCache = false) {
   });
   view.querySelectorAll("[data-mark]").forEach(btn => btn.addEventListener("click", () => mark(btn.dataset.id, btn.dataset.mark)));
 }
+function councilBadge(i) {
+  const c = i.council;
+  if (!c) return "";
+  const detail = Object.entries(c.scores).sort()
+    .map(([m, s]) => `${m[0].toUpperCase()}${s}`).join(" ");
+  const hot = c.mean >= 9 ? "style=\"color:var(--green);font-weight:700\"" : "";
+  return `<span ${hot} title="council: ${esc(detail)}">⚖ ${c.mean} <small style="color:var(--muted)">${esc(detail)}</small></span>`;
+}
 function cardHtml(i) {
   const btns = STATUSES.filter(s => s !== i.status).map(s =>
     `<button class="${s}" data-id="${esc(i.id)}" data-mark="${s}" ${cfg.token ? "" : "disabled"}>${s}</button>`).join("");
@@ -245,6 +261,7 @@ function cardHtml(i) {
     <h3>${esc(i.title)}</h3>
     <div class="meta">
       <span class="status ${esc(i.status)}">${esc(i.status)}</span>
+      ${councilBadge(i)}
       <span class="impact" title="impact">${impactDots(i.impact)}</span>
       <span>${esc(i.effort)} effort</span><span>${esc(i.category)}</span>
       <span>${esc((i.created_at || "").slice(0, 10))}</span>

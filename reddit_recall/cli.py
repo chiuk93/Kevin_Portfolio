@@ -53,17 +53,32 @@ def cmd_extract(args, cfg: Config) -> int:
         return 0
     print(f"Extracting ideas from {len(pending)} item(s) with {'mock extractor' if args.mock else cfg.model}...")
     if args.mock:
+        from .council import mock_council as council
         from .extract import extract_ideas_mock as extractor
     else:
+        from .council import run_council as council
         from .extract import extract_ideas as extractor
     ideas = extractor(pending, backlog.existing_titles(), cfg.model)
+
+    if ideas:
+        judges = "mock judges" if args.mock else ", ".join(cfg.council_models)
+        print(f"Council scoring {len(ideas)} idea(s) with {judges}...")
+        ideas = council(ideas) if args.mock else council(ideas, cfg.council_models)
+        from .council import council_mean
+        qualified = [i for i in ideas if council_mean(i) >= cfg.council_min]
+        dropped = [i for i in ideas if i not in qualified]
+        for idea in dropped:
+            print(f"  dropped (council {council_mean(idea)}/10 < {cfg.council_min}): {idea['title']}")
+        ideas = qualified
+
     added = [backlog.add(i) for i in ideas]
     store.mark_extracted([i["id"] for i in pending])
     backlog.save()
     store.save()
     print(f"Added {len(added)} new idea(s) to the backlog:")
     for idea in added:
-        print(f"  [{idea['impact']}/5] {idea['id']}: {idea['title']}")
+        mean = idea.get("council", {}).get("mean", "?")
+        print(f"  [council {mean}/10] {idea['id']}: {idea['title']}")
     return 0
 
 

@@ -14,10 +14,18 @@ STATUS_EMOJI = {
 }
 
 
+def _council_line(idea: dict) -> str:
+    council = idea.get("council")
+    if not council:
+        return ""
+    breakdown = ", ".join(f"{m} {s}" for m, s in sorted(council["scores"].items()))
+    return f" · council **{council['mean']}/10** ({breakdown})"
+
+
 def _idea_block(idea: dict) -> str:
     return (
         f"### {idea['title']}\n"
-        f"`{idea['id']}` · impact {idea['impact']}/5 · {idea['effort']} effort · {idea['category']}\n\n"
+        f"`{idea['id']}` · impact {idea['impact']}/5 · {idea['effort']} effort · {idea['category']}{_council_line(idea)}\n\n"
         f"{idea['summary']}\n\n"
         f"**Verdict:** {idea.get('verdict', '')}\n\n"
         f"**Why it matters:** {idea['why_it_matters']}\n\n"
@@ -36,7 +44,10 @@ def write_digest(new_ideas: list[dict], stale_ideas: list[dict],
     lines = [f"# Reddit Recall digest — {today}", ""]
 
     if new_ideas:
-        ranked = sorted(new_ideas, key=lambda i: -i["impact"])
+        ranked = sorted(
+            new_ideas,
+            key=lambda i: (-i.get("council", {}).get("mean", 0), -i["impact"]),
+        )
         lines += [f"## {len(ranked)} new idea(s) from your Reddit history", ""]
         for idea in ranked:
             lines += [_idea_block(idea), ""]

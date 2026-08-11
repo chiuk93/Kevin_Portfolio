@@ -36,6 +36,16 @@ class Config:
             f"reddit-recall/0.1 by u/{self.reddit_username or 'unknown'}",
         )
         self.model = os.environ.get("RECALL_MODEL", "claude-opus-5")
+        # Council of judges: each model scores every extracted idea 1-10.
+        self.council_models = [
+            m.strip() for m in
+            os.environ.get(
+                "RECALL_COUNCIL_MODELS",
+                "claude-opus-5,claude-sonnet-5,claude-haiku-4-5",
+            ).split(",") if m.strip()
+        ]
+        # Ideas whose council mean is below this never reach the backlog.
+        self.council_min = float(os.environ.get("RECALL_COUNCIL_MIN", "7"))
         # Subreddits scanned in scan mode (comma-separated).
         self.subreddits = [
             s.strip() for s in

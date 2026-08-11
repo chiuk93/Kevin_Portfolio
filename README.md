@@ -7,13 +7,20 @@ you until you act on them. No saving or upvoting required.
 **The loop:**
 
 ```
-scan ──▶ judge ──▶ digest ──▶ you implement ──▶ mark done
-  │        │          │
-  │        │          └─ digests/YYYY-MM-DD.md + BACKLOG.md + GitHub issue
-  │        └─ Claude filters hard: "would I honestly spend time building this,
-  │           for this user?" — judged against context/profile.md
+scan ──▶ extract ──▶ council ──▶ digest ──▶ you implement ──▶ mark done
+  │         │           │           │
+  │         │           │           └─ digests/YYYY-MM-DD.md + BACKLOG.md + issue
+  │         │           └─ 3 judges on 3 different models (Opus, Sonnet, Haiku)
+  │         │              each score every idea 1-10; low means are dropped
+  │         └─ Claude filters hard: "would I honestly spend time building
+  │            this, for this user?" — judged against context/profile.md
   └─ top posts of the week (+ best comments) from r/ClaudeCode, r/ClaudeAI
 ```
+
+Every idea that survives carries its council verdict (e.g.
+`council 9.3/10 (opus 9, sonnet 9, haiku 10)`) into the backlog, the digest,
+and the phone app — where a **9+** filter shows only the ideas the whole
+council would insist you adopt.
 
 **Why it compounds (the recursive part):**
 
@@ -118,7 +125,9 @@ State is plain JSON committed to git: diffable, hand-editable, no database.
 
 | Variable             | Default             | Meaning |
 |----------------------|---------------------|---------|
-| `RECALL_MODEL`       | `claude-opus-5`     | Model used for judging/extraction |
+| `RECALL_MODEL`       | `claude-opus-5`     | Model used for extraction |
+| `RECALL_COUNCIL_MODELS` | `claude-opus-5,claude-sonnet-5,claude-haiku-4-5` | The judging council |
+| `RECALL_COUNCIL_MIN` | `7`                 | Council mean below this → idea is dropped |
 | `RECALL_SUBREDDITS`  | `ClaudeCode,ClaudeAI` | Comma-separated subreddits to scan |
 | `RECALL_TIME_FILTER` | `week`              | Top-posts window: hour/day/week/month/year/all |
 | `RECALL_POST_LIMIT`  | `25`                | Posts per subreddit per run |
