@@ -16,19 +16,28 @@ def cmd_fetch(args, cfg: Config) -> int:
         fetched = json.loads(Path(args.fixtures).read_text())
         print(f"Loaded {len(fetched)} item(s) from fixtures {args.fixtures}")
     else:
-        missing = cfg.validate_reddit()
+        use_history = getattr(args, "history", False)
+        missing = cfg.validate_history() if use_history else cfg.validate_reddit()
         if missing:
             print(f"Missing Reddit credentials: {', '.join(missing)}", file=sys.stderr)
             print("Copy .env.example to .env and fill them in (see README).", file=sys.stderr)
             return 1
         from .reddit import RedditClient
         client = RedditClient(
-            cfg.reddit_client_id, cfg.reddit_client_secret,
-            cfg.reddit_username, cfg.reddit_password,
-            cfg.user_agent, cfg.max_pages,
+            cfg.reddit_client_id, cfg.reddit_client_secret, cfg.user_agent,
+            username=cfg.reddit_username if use_history else "",
+            password=cfg.reddit_password if use_history else "",
+            max_pages=cfg.max_pages,
         )
-        fetched = client.fetch_history()
-        print(f"Fetched {len(fetched)} item(s) from Reddit")
+        fetched = client.fetch_subreddits(
+            cfg.subreddits, cfg.time_filter, cfg.post_limit
+        )
+        print(f"Scanned {len(fetched)} post(s) from {', '.join('r/' + s for s in cfg.subreddits)} "
+              f"(top of the {cfg.time_filter})")
+        if use_history:
+            history = client.fetch_history()
+            print(f"Fetched {len(history)} item(s) from your own Reddit history")
+            fetched.extend(history)
     fresh = store.add_new(fetched)
     store.save()
     print(f"{len(fresh)} new item(s) recorded, {len(store.pending_extraction())} pending extraction")
@@ -115,16 +124,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_fetch = sub.add_parser("fetch", help="Pull new items from your Reddit history")
+    p_fetch = sub.add_parser("fetch", help="Scan subreddits for top posts (default) and optionally your own history")
     p_fetch.add_argument("--fixtures", help="Load items from a JSON file instead of the Reddit API")
+    p_fetch.add_argument("--history", action="store_true",
+                         help="Also pull your saved/upvoted/submitted/comments (needs username+password)")
 
-    p_extract = sub.add_parser("extract", help="Extract actionable ideas from unprocessed items")
+    p_extract = sub.add_parser("extract", help="Judge unprocessed items and extract ideas worth building")
     p_extract.add_argument("--mock", action="store_true", help="Use the no-API mock extractor")
 
     sub.add_parser("digest", help="Write the digest and regenerate BACKLOG.md")
 
     p_run = sub.add_parser("run", help="fetch + extract + digest in one go")
     p_run.add_argument("--fixtures", help="Load items from a JSON file instead of the Reddit API")
+    p_run.add_argument("--history", action="store_true",
+                       help="Also pull your own Reddit history (needs username+password)")
     p_run.add_argument("--mock", action="store_true", help="Use the no-API mock extractor")
 
     p_mark = sub.add_parser("mark", help="Update an idea's status")

@@ -1,37 +1,51 @@
-"""Idea extraction: turn raw Reddit items into actionable backlog entries via Claude."""
+"""Idea extraction: Claude reads scanned Reddit posts and judges — with a high
+bar — which ideas are genuinely worth this user's time to build or adopt."""
 
 from pydantic import BaseModel, Field
+
+from .config import PROFILE_PATH
 
 BATCH_SIZE = 8
 
 SYSTEM_PROMPT = """\
-You are an idea miner for a developer who uses Claude Code heavily. You read \
-their saved/upvoted Reddit posts and comments (mostly from r/ClaudeCode, \
-r/ClaudeAI, and adjacent programming subreddits) and extract concrete, \
-actionable items they could adopt: tools to install, workflows to set up, \
-configuration tips, prompting techniques, automation ideas, MCP servers, \
-hooks, slash commands, and process improvements.
+You are a discerning senior engineer curating ideas for a developer who uses \
+Claude Code heavily. You read top Reddit posts (and their best comments) from \
+Claude Code / AI-coding subreddits and decide which ideas are GENUINELY worth \
+this specific user's time to build or adopt.
 
-Rules:
-- Extract only genuinely actionable ideas. Memes, opinion threads, news, and \
-vague hype produce nothing — return zero ideas for those rather than padding.
-- One Reddit item can yield zero, one, or several ideas.
-- Skip anything that duplicates an idea already in the user's backlog \
-(a list of existing idea titles is provided).
-- Be concrete: "first_step" must be something doable in under 30 minutes.
-- "impact" is 1-5: how much this could improve the user's daily Claude Code \
-workflow. Be honest — most tips are a 2 or 3.
+The bar is high. Ask yourself for each candidate: "If this were my own \
+workflow, would I honestly spend the time to build this — and would it still \
+be paying off a month later?" Only ideas that clear that bar go in your output.
+
+Reject without hesitation:
+- Hype, memes, model-release news, benchmark screenshots, rants, pricing drama.
+- Vague advice with no concrete mechanism ("just prompt better").
+- Ideas that only make sense for large teams or stacks the user doesn't run.
+- Ideas that duplicate anything in the user's existing backlog (list provided).
+  Titles marked (rejected) show what the user has already turned down — treat
+  those as taste signals and don't re-surface near-identical ideas.
+
+A typical scan yields 0-5 ideas that clear the bar. Returning ZERO ideas is a
+good outcome — it means the week was noise. Never pad.
+
+For ideas that do clear the bar:
+- "verdict" is your honest opinion: why this is worth the build time for THIS
+  user, given their profile — one or two blunt sentences.
+- "first_step" must be doable in under 30 minutes.
+- "impact" is 1-5 for THIS user's daily workflow. If you can't defend a 3+,
+  the idea probably shouldn't be in your output.
 - Set "source_permalink" to the permalink of the Reddit item the idea came from.
 """
 
 
 class Idea(BaseModel):
     title: str = Field(description="Short imperative title, e.g. 'Add a pre-commit hook that runs /security-review'")
-    summary: str = Field(description="2-3 sentences: what the idea is")
-    why_it_matters: str = Field(description="1-2 sentences: what it improves for this user")
+    summary: str = Field(description="2-3 sentences: what the idea is and the mechanism behind it")
+    verdict: str = Field(description="1-2 blunt sentences: your honest opinion on why this is worth this user's build time")
+    why_it_matters: str = Field(description="1-2 sentences: what it improves for this user's processes")
     first_step: str = Field(description="The concrete first action, doable in under 30 minutes")
     category: str = Field(description="One of: tooling, workflow, prompting, automation, configuration, learning")
-    impact: int = Field(description="1-5 estimated impact on daily workflow")
+    impact: int = Field(description="1-5 estimated impact on this user's daily workflow")
     effort: str = Field(description="One of: low, medium, high")
     source_permalink: str = Field(description="Permalink of the Reddit item this came from")
     tags: list[str] = Field(description="2-4 short lowercase tags")
@@ -41,11 +55,17 @@ class ExtractionResult(BaseModel):
     ideas: list[Idea]
 
 
+def load_profile() -> str:
+    if PROFILE_PATH.exists():
+        return PROFILE_PATH.read_text().strip()
+    return "(no profile yet — judge for a solo developer who uses Claude Code daily)"
+
+
 def _format_items(items: list[dict]) -> str:
     blocks = []
     for item in items:
         blocks.append(
-            f"### [{item['id']}] r/{item['subreddit']} ({', '.join(item['sources'])})\n"
+            f"### [{item['id']}] r/{item['subreddit']} ({', '.join(item['sources'])}, score {item.get('score', '?')})\n"
             f"Title: {item['title']}\n"
             f"Permalink: {item['permalink']}\n"
             f"Link: {item.get('link', '')}\n"
@@ -54,20 +74,27 @@ def _format_items(items: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
+def _titles_block(existing: list[str], new_this_run: list[dict]) -> str:
+    lines = existing + [i["title"] for i in new_this_run]
+    return "\n".join(f"- {t}" for t in lines) or "(backlog is empty)"
+
+
 def extract_ideas(items: list[dict], existing_titles: list[str],
                   model: str) -> list[dict]:
-    """Run Claude over items in batches; return new idea dicts."""
+    """Run Claude over items in batches; return only ideas that clear the bar."""
     import anthropic
 
     client = anthropic.Anthropic()
+    profile = load_profile()
     all_ideas: list[dict] = []
     for start in range(0, len(items), BATCH_SIZE):
         batch = items[start:start + BATCH_SIZE]
-        titles_block = "\n".join(f"- {t}" for t in existing_titles + [i["title"] for i in all_ideas]) or "(backlog is empty)"
         user_prompt = (
-            "Existing backlog idea titles (do NOT duplicate these):\n"
-            f"{titles_block}\n\n"
-            "Reddit items to mine:\n\n"
+            "## User profile (judge against this)\n"
+            f"{profile}\n\n"
+            "## Existing backlog titles (do NOT duplicate; '(rejected)' = user turned it down)\n"
+            f"{_titles_block(existing_titles, all_ideas)}\n\n"
+            "## Reddit items to judge\n\n"
             f"{_format_items(batch)}"
         )
         response = client.messages.parse(
@@ -100,6 +127,7 @@ def extract_ideas_mock(items: list[dict], existing_titles: list[str],
         ideas.append({
             "title": title,
             "summary": (item["body"] or item["title"])[:200],
+            "verdict": "Mock verdict: looks plausibly useful.",
             "why_it_matters": "Mock extraction for local testing.",
             "first_step": f"Read {item['permalink']}",
             "category": "workflow",

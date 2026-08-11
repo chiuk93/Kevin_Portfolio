@@ -19,6 +19,7 @@ def _idea_block(idea: dict) -> str:
         f"### {idea['title']}\n"
         f"`{idea['id']}` · impact {idea['impact']}/5 · {idea['effort']} effort · {idea['category']}\n\n"
         f"{idea['summary']}\n\n"
+        f"**Verdict:** {idea.get('verdict', '')}\n\n"
         f"**Why it matters:** {idea['why_it_matters']}\n\n"
         f"**First step:** {idea['first_step']}\n\n"
         f"**Source:** {idea['source_permalink']}\n"

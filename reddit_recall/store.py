@@ -73,7 +73,11 @@ class Backlog:
         self.ideas: list[dict] = _load(BACKLOG_PATH, [])
 
     def existing_titles(self) -> list[str]:
-        return [i["title"] for i in self.ideas]
+        """Titles for dedup; rejected ones are marked so the judge learns taste."""
+        return [
+            f"{i['title']} (rejected)" if i["status"] == "rejected" else i["title"]
+            for i in self.ideas
+        ]
 
     def _unique_id(self, title: str) -> str:
         base = slugify(title)
